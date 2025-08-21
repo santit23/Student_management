@@ -1,0 +1,58 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}My Quizzes{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card card-primary">
+                    <div class="card-header">
+                        <h3 class="card-title">My Quizzes</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <a href="{% url 'quiz_create' %}" class="btn btn-success">
+                                <i class="fas fa-plus"></i> Create New Quiz
+                            </a>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Subject</th>
+                                        <th>Total Questions</th>
+                                        <th>Created On</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for quiz in quizzes %}
+                                    <tr>
+                                        <td>{{ quiz.title }}</td>
+                                        <td>{{ quiz.subject.name }}</td>
+                                        <td>{{ quiz.questions.count }}</td>
+                                        <td>{{ quiz.created_at|date:"d M Y, h:i A" }}</td>
+                                        <td>
+                                            <a href="{% url 'quiz_detail' quiz.id %}" class="btn btn-info btn-sm">
+                                                <i class="fas fa-eye"></i> View Details
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center">You have not created any quizzes yet.</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}

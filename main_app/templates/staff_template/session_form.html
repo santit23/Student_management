@@ -1,0 +1,62 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card card-primary">
+                    <div class="card-header"><h3 class="card-title">{{page_title}}</h3></div>
+                    <form role="form" method="POST" action="">
+                        {% csrf_token %}
+                        <div class="card-body">
+                            
+                            <!-- This will display errors that don't belong to a specific field -->
+                            {% if form.non_field_errors %}
+                                <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                            {% endif %}
+
+                            <p class="text-muted">Configure the settings for this new live session. Leave start/end times blank for the session to be open immediately and indefinitely.</p>
+                            
+                            <div class="form-group">
+                                <label for="{{ form.starts_at.id_for_label }}">Optional Start Time</label>
+                                {{ form.starts_at }}
+                                <!-- This will show an error if the start time is invalid -->
+                                {% if form.starts_at.errors %}
+                                    <div class="alert alert-danger mt-1 p-2">{{ form.starts_at.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="form-group">
+                                <label for="{{ form.ends_at.id_for_label }}">Optional End Time</label>
+                                {{ form.ends_at }}
+                                <!-- This will show an error if the end time is invalid -->
+                                {% if form.ends_at.errors %}
+                                    <div class="alert alert-danger mt-1 p-2">{{ form.ends_at.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="form-group">
+                                <label for="{{ form.max_attempts_per_student.id_for_label }}">Max Attempts Per Student</label>
+                                {{ form.max_attempts_per_student }}
+                                <!-- This will show an error if this field is invalid -->
+                                {% if form.max_attempts_per_student.errors %}
+                                    <div class="alert alert-danger mt-1 p-2">{{ form.max_attempts_per_student.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="form-group form-check">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Make session active immediately</label>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" class="btn btn-primary">Create Live Session</button>
+                            <a href="{% url 'quiz_detail' quiz.id %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}

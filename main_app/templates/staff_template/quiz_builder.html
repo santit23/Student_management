@@ -1,0 +1,106 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <form method="POST" action="">
+            {% csrf_token %}
+            
+            <!-- This is CRITICAL for the formset to work -->
+            {{ formset.management_form }}
+
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card card-info">
+                        <div class="card-header">
+                            <h3 class="card-title">Quiz Builder</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">Fill out the question blocks below. Use the button at the bottom to add more questions to this quiz.</p>
+
+                            <!-- Container for all the question forms -->
+                            <div id="forms-container">
+                                {% for form in formset %}
+                                <div class="question-block card card-outline card-secondary mb-3">
+                                    <div class="card-header">
+                                        <h5 class="card-title">Question <span class="question-number">{{ forloop.counter }}</span></h5>
+                                        <div class="card-tools">
+                                            <button type="button" class="btn btn-tool remove-form-btn text-danger"><i class="fas fa-trash"></i> Remove</button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        {{ form.as_p }}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- This is the hidden template for a new question form -->
+                            <div id="empty-form" class="d-none">
+                                <div class="question-block card card-outline card-secondary mb-3">
+                                    <div class="card-header">
+                                        <h5 class="card-title">Question <span class="question-number"></span></h5>
+                                        <div class="card-tools">
+                                            <button type="button" class="btn btn-tool remove-form-btn text-danger"><i class="fas fa-trash"></i> Remove</button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        {{ formset.empty_form.as_p }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" id="add-form-btn" class="btn btn-success mt-3"><i class="fas fa-plus"></i> Add Another Question</button>
+                        </div>
+
+                        <div class="card-footer">
+                            <button type="submit" class="btn btn-primary btn-lg">Save All Questions</button>
+                            <a href="{% url 'quiz_detail' quiz_id=quiz.id %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock content %}
+
+{% block custom_js %}
+<script>
+$(document).ready(function() {
+    function updateQuestionNumbers() {
+        $('.question-block').each(function(index) {
+            $(this).find('.question-number').text(index + 1);
+        });
+    }
+
+    // Add a new question form
+    $('#add-form-btn').click(function() {
+        // Get the total number of forms from the management form
+        let formCount = parseInt($('#id_form-TOTAL_FORMS').val());
+
+        // Clone the empty form template
+        let newForm = $('#empty-form').html().replace(/__prefix__/g, formCount);
+        
+        // Append the new form to the container
+        $('#forms-container').append(newForm);
+
+        // Increment the total form count in the management form
+        $('#id_form-TOTAL_FORMS').val(formCount + 1);
+
+        updateQuestionNumbers();
+    });
+
+    // Remove a question form
+    $('#forms-container').on('click', '.remove-form-btn', function() {
+        $(this).closest('.question-block').remove();
+        updateQuestionNumbers();
+    });
+
+    // Initial numbering
+    updateQuestionNumbers();
+});
+</script>
+{% endblock custom_js %}

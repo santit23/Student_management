@@ -318,6 +318,68 @@
                         </p>
                     </a>
                 </li>
+
+                <li class="nav-item">
+                    {% url 'quiz_list' as quiz_list %}
+                    <a href="{{quiz_list}}" class="nav-link {% if quiz_list == request.path %} active {% endif %}">
+                        <i class="nav-icon fas fa-th"></i>
+                        <p>
+                            quiz_list
+
+                        </p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    {% url 'quiz_create' as quiz_create %}
+                    <a href="{{quiz_create}}" class="nav-link {% if quiz_create == request.path %} active {% endif %}">
+                        <i class="nav-icon fas fa-th"></i>
+                        <p>
+                            quiz_create
+
+                        </p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    {% url 'quiz_detail' as quiz_detail %}
+                    <a href="{{quiz_detail}}" class="nav-link {% if quiz_detail == request.path %} active {% endif %}">
+                        <i class="nav-icon fas fa-th"></i>
+                        <p>
+                            quiz_detail
+
+                        </p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    {% url 'question_add' as question_add %}
+                    <a href="{{question_add}}" class="nav-link {% if question_add == request.path %} active {% endif %}">
+                        <i class="nav-icon fas fa-th"></i>
+                        <p>
+                            question_add
+
+                        </p>
+                    </a>
+                </li>
+
+            
+
+                
+
+                
+
+                <li class="nav-item">
+                    {% url 'session_detail' as session_detail %}
+                    <a href="{{session_detail}}" class="nav-link {% if session_detail == request.path %} active {% endif %}">
+                        <i class="nav-icon fas fa-th"></i>
+                        <p>
+                            session_detail
+
+                        </p>
+                    </a>
+                </li>
+
                 <li class="nav-item">
                     {% url 'staff_view_notification' as staff_view_notification %}
                     <a href="{{staff_view_notification}}" class="nav-link {% if staff_view_notification == request.path %} active {% endif %}">

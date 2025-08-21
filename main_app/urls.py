@@ -14,6 +14,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
+from django.conf.urls.static import static
+from django.conf import settings
 
 from main_app.EditResultView import EditResultView
 
@@ -110,6 +112,17 @@ urlpatterns = [
          name='edit_student_result'),
     path('staff/result/fetch/', staff_views.fetch_student_result,
          name='fetch_student_result'),
+     
+     # Quiz Management
+     path("staff/quizzes/", staff_views.quiz_list, name="quiz_list"),
+     path("staff/quiz/create/", staff_views.quiz_create, name="quiz_create"),
+     path("staff/quiz/<int:quiz_id>/", staff_views.quiz_detail, name="quiz_detail"),
+     path("staff/quiz/<int:quiz_id>/add-question/", staff_views.question_add, name="question_add"),
+     path('staff/quiz/<int:quiz_id>/builder/', staff_views.quiz_builder, name='quiz_builder'),
+     path("staff/question/<int:question_id>/add-choice/", staff_views.choice_add, name="choice_add"),
+     path('staff/quiz/<int:quiz_id>/session/create/', staff_views.quiz_session_create, name='quiz_session_create'),
+     path("staff/session/<int:session_id>/", staff_views.session_detail, name="session_detail"),
+      path('staff/session/<int:session_id>/dashboard/', staff_views.session_dashboard, name='session_dashboard'),
 
 
 
@@ -129,5 +142,6 @@ urlpatterns = [
          name="student_view_notification"),
     path('student/view/result/', student_views.student_view_result,
          name='student_view_result'),
+     
 
-]
+]  + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

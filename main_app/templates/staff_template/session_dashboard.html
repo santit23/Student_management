@@ -1,0 +1,109 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <!-- Page Header -->
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Session Dashboard</h1>
+                <h4 class="text-muted">{{ session.quiz.title }} [{{ session.session_code }}]</h4>
+            </div>
+            <div class="col-sm-6 text-right">
+                 <a href="{% url 'session_detail' session.id %}" class="btn btn-outline-info mt-3"><i class="fas fa-qrcode"></i> Show Join Code</a>
+            </div>
+        </div>
+
+        <!-- Stat Boxes -->
+        <div class="row">
+            <div class="col-lg-4 col-6">
+                <div class="small-box bg-info">
+                    <div class="inner">
+                        <h3>{{ total_students_joined }}</h3>
+                        <p>Students Joined</p>
+                    </div>
+                    <div class="icon"><i class="fas fa-users"></i></div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-6">
+                <div class="small-box bg-success">
+                    <div class="inner">
+                        <h3>{{ completed_count }}</h3>
+                        <p>Submissions Completed</p>
+                    </div>
+                    <div class="icon"><i class="fas fa-check-circle"></i></div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-6">
+                <div class="small-box bg-warning">
+                    <div class="inner">
+                        <h3>{{ average_score|default:"N/A" }}</h3>
+                        <p>Average Score</p>
+                    </div>
+                    <div class="icon"><i class="fas fa-star-half-alt"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Student Leaderboard</h3>
+                        <div class="card-tools">
+                           <span class="text-muted font-italic">Page auto-refreshes every 30 seconds.</span>
+                        </div>
+                    </div>
+                    <div class="card-body table-responsive p-0">
+                        <table class="table table-hover text-nowrap">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Student Name</th>
+                                    <th>Status</th>
+                                    <th>Score</th>
+                                    <th>Submitted At</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attempt in attempts|dictsortreversed:"score" %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ attempt.student.admin.get_full_name }}</td>
+                                    <td>
+                                        {% if attempt.status == 'submitted' %}
+                                            <span class="badge badge-success">Submitted</span>
+                                        {% else %}
+                                            <span class="badge badge-warning">In Progress</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong>{{ attempt.score|floatformat:2 }}</strong></td>
+                                    <td>{{ attempt.submitted_at|date:"d M Y, h:i A"|default:"--" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center p-4">No students have joined this session yet.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}
+
+{% block custom_js %}
+<script>
+    // This script will automatically refresh the page every 30 seconds (30000 milliseconds)
+    // to update the dashboard with new results.
+    setTimeout(function() {
+        window.location.reload();
+    }, 30000);
+</script>
+{% endblock custom_js %}

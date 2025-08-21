@@ -1,5 +1,6 @@
 from django import forms
 from django.forms.widgets import DateInput, TextInput
+from django.forms import BaseInlineFormSet, inlineformset_factory
 
 from .models import *
 
@@ -189,3 +190,121 @@ class EditResultForm(FormSettings):
     class Meta:
         model = StudentResult
         fields = ['session_year', 'subject', 'student', 'test', 'exam']
+
+
+class QuizForm(forms.ModelForm):
+    # Make the description field a textarea
+    description = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
+    class Meta:
+        model = Quiz
+        fields = ["subject", "title", "description", "duration_minutes"]
+        
+    def __init__(self, *args, **kwargs):
+        # Pop the 'staff' object passed from the view
+        staff = kwargs.pop('staff', None)
+        super().__init__(*args, **kwargs)
+
+        # If a staff member was passed in, filter the 'subject' field's queryset
+        if staff:
+            self.fields['subject'].queryset = Subject.objects.filter(staff=staff)
+        else:
+            self.fields['subject'].queryset = Subject.objects.none()
+
+# This is a validation class for our formset
+class BaseChoiceFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        
+        # Check that at least one choice has been marked as correct.
+        has_correct_choice = False
+        for form in self.forms:
+            if not form.is_valid():
+                # Don't run validation on invalid forms
+                continue
+            if form.cleaned_data.get('is_correct') and not form.cleaned_data.get('DELETE', False):
+                has_correct_choice = True
+                break
+        
+        if not has_correct_choice:
+            raise forms.ValidationError("You must select at least one correct answer.", code='no_correct_answer')
+
+class QuestionForm(forms.ModelForm):
+    class Meta:
+        model = Question
+        fields = ["text", "question_type", "marks", "order"]
+
+class ChoiceForm(forms.ModelForm):
+    class Meta:
+        model = Choice
+        fields = ["text", "is_correct"]
+
+class QuizSessionForm(forms.ModelForm):
+    class Meta:
+        model = QuizSession
+        fields = ['starts_at', 'ends_at', 'max_attempts_per_student', 'is_active']
+
+        widgets = {
+            'starts_at': forms.DateTimeInput(
+                attrs={'type': 'datetime-local', 'class': 'form-control'},
+                format='%Y-%m-%dT%H:%M'  # This format matches the datetime-local input
+            ),
+            'ends_at': forms.DateTimeInput(
+                attrs={'type': 'datetime-local', 'class': 'form-control'},
+                format='%Y-%m-%dT%H:%M'
+            ),
+            'max_attempts_per_student': forms.NumberInput(
+                attrs={'class': 'form-control', 'min': 1, 'value': 1}
+            ),
+            'is_active': forms.CheckboxInput(
+                attrs={'class': 'form-check-input'}
+            )
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make the time fields optional, as they can be blank
+        self.fields['starts_at'].required = False
+        self.fields['ends_at'].required = False
+
+# This is the formset factory for linking Choices to a Question
+# It will generate multiple choice forms on the question page
+ChoiceFormSet = inlineformset_factory(
+    Question,                   # Parent model
+    Choice,                     # Child model
+    formset=BaseChoiceFormSet,  # Use our custom validation
+    fields=('text', 'is_correct'), # Fields to include in each choice form
+    extra=4,                    # Show 4 empty choice forms by default
+    can_delete=True,            # Allow deleting choices
+    min_num=1,                  # Require at least one choice to be submitted
+    validate_min=True,
+)
+
+class QuestionAndChoicesForm(forms.Form):
+    """
+    A form to handle one Question and its Choices. We will use this in a formset.
+    """
+    text = forms.CharField(
+        label="Question Text",
+        widget=forms.Textarea(attrs={'rows': 2, 'class': 'form-control'})
+    )
+    marks = forms.FloatField(initial=1.0, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    
+    # Define fields for 4 choices
+    choice_1 = forms.CharField(label="Choice 1", widget=forms.TextInput(attrs={'class': 'form-control'}))
+    choice_2 = forms.CharField(label="Choice 2", widget=forms.TextInput(attrs={'class': 'form-control'}))
+    choice_3 = forms.CharField(label="Choice 3", widget=forms.TextInput(attrs={'class': 'form-control'}), required=False)
+    choice_4 = forms.CharField(label="Choice 4", widget=forms.TextInput(attrs={'class': 'form-control'}), required=False)
+
+    # Field to select the correct answer
+    CORRECT_CHOICE_OPTIONS = [
+        ('1', 'Choice 1'),
+        ('2', 'Choice 2'),
+        ('3', 'Choice 3'),
+        ('4', 'Choice 4'),
+    ]
+    correct_choice = forms.ChoiceField(
+        label="Correct Answer",
+        choices=CORRECT_CHOICE_OPTIONS,
+        widget=forms.RadioSelect
+    )
+

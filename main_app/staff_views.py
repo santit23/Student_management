@@ -6,6 +6,9 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import (HttpResponseRedirect, get_object_or_404,redirect, render)
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+from django.forms import formset_factory
+from django.db.models import Avg
 
 from .forms import *
 from .models import *
@@ -310,3 +313,213 @@ def fetch_student_result(request):
         return HttpResponse(json.dumps(result_data))
     except Exception as e:
         return HttpResponse('False')
+    
+@login_required
+def quiz_list(request):
+    """Show all quizzes created by this staff."""
+    staff = get_object_or_404(Staff, admin=request.user)
+    quizzes = Quiz.objects.filter(created_by=staff)
+    return render(request, "staff_template/quiz_list.html", {"quizzes": quizzes})
+
+@login_required
+def quiz_create(request):
+    """Staff creates a new quiz."""
+    staff = get_object_or_404(Staff, admin=request.user)
+    if request.method == "POST":
+        form = QuizForm(request.POST, staff=staff)
+        if form.is_valid():
+            quiz = form.save(commit=False)
+            quiz.created_by = staff
+            quiz.save()
+            messages.success(request, f"Quiz '{quiz.title}' created. Now add questions.")
+            # REDIRECT TO THE NEW BUILDER VIEW
+            return redirect("quiz_detail", quiz_id=quiz.id)
+        else: 
+            messages.error(request, "Invalid Data Provided")
+    else:
+        form = QuizForm(staff=staff)
+
+    context = {
+        'form': form,
+        'page_title': 'Create New Quiz (Step 1 of 2)'
+    }
+    return render(request, "staff_template/quiz_form.html", context)
+
+@login_required
+def quiz_detail(request, quiz_id):
+    """View quiz details and its questions."""
+    # Ensure the staff can only see their own quizzes
+    staff = get_object_or_404(Staff, admin=request.user)
+    quiz = get_object_or_404(Quiz, id=quiz_id, created_by=staff)
+    
+    questions = quiz.questions.all()
+    
+    context = {
+        "quiz": quiz, 
+        "questions": questions,
+        "page_title": f"Manage Quiz: {quiz.title}" # Add page title
+    }
+    
+    # Make sure this path is correct for your project
+    return render(request, "staff_template/quiz_detail.html", context)
+
+@login_required
+def question_add(request, quiz_id):
+    """Add a question to quiz."""
+    quiz = get_object_or_404(Quiz, id=quiz_id, created_by__admin=request.user)
+    question_form = QuestionForm(request.POST or None)
+    choice_formset = ChoiceFormSet(request.POST or None, prefix='choices')
+
+    if request.method == "POST":
+        if question_form.is_valid() and choice_formset.is_valid():
+            # First, save the question so we have an ID to link choices to
+            question = question_form.save(commit=False)
+            question.quiz = quiz
+            question.save()
+
+            # Now, associate the formset with the saved question and save it
+            choice_formset.instance = question
+            choice_formset.save()
+
+            messages.success(request, "Question and choices added successfully.")
+            return redirect("quiz_detail", quiz_id=quiz.id)
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    context = {
+        "quiz": quiz,
+        "question_form": question_form,
+        "choice_formset": choice_formset,
+        'page_title': f'Add Question to {quiz.title}'
+    }
+    return render(request, "staff_template/question_form.html", context)
+
+
+@login_required
+def choice_add(request, question_id):
+    """Add a choice to a question."""
+    question = get_object_or_404(Question, id=question_id, quiz__created_by=request.user)
+
+    if request.method == "POST":
+        form = ChoiceForm(request.POST)
+        if form.is_valid():
+            choice = form.save(commit=False)
+            choice.question = question
+            choice.save()
+            messages.success(request, "Choice added.")
+            return redirect("quiz_detail", quiz_id=question.quiz.id)
+    else:
+        form = ChoiceForm()
+
+    return render(request, "staff_template/choice_form.html", {"form": form, "question": question})
+
+
+@login_required
+def quiz_session_create(request, quiz_id):
+    """Create a new quiz session for a quiz."""
+    staff = get_object_or_404(Staff, admin=request.user)
+    quiz = get_object_or_404(Quiz, id=quiz_id, created_by=staff)
+
+    if request.method == "POST":
+        form = QuizSessionForm(request.POST)
+        if form.is_valid():
+            session = form.save(commit=False)
+            session.quiz = quiz
+            session.created_by = staff
+            session.save()
+            messages.success(request, f"Session created with code {session.session_code}")
+            return redirect("session_detail", session_id=session.id)
+        else:
+            # Add an error message so the user knows the submission failed
+            messages.error(request, "Please correct the errors shown below.")
+    else:
+        form = QuizSessionForm()
+
+    return render(request, "staff_template/session_form.html", {"form": form, "quiz": quiz, "page_title": f"Create Session for {quiz.title}"})
+
+
+
+@login_required
+def session_detail(request, session_id):
+    """View session details (code + QR)."""
+    staff = get_object_or_404(Staff, admin=request.user)
+    session = get_object_or_404(QuizSession, id=session_id, created_by=staff)
+    return render(request, "staff_template/session_detail.html", {"session": session, "page title": "Live Session Details"})
+
+
+@login_required
+def quiz_builder(request, quiz_id):
+    """
+    A dedicated page to add multiple questions and choices to a specific quiz.
+    """
+    staff = get_object_or_404(Staff, admin=request.user)
+    quiz = get_object_or_404(Quiz, id=quiz_id, created_by=staff)
+
+    # Create a formset class that uses our custom form, showing 1 empty form
+    QuestionFormSet = formset_factory(QuestionAndChoicesForm, extra=1)
+
+    if request.method == 'POST':
+        formset = QuestionFormSet(request.POST)
+        if formset.is_valid():
+            for form in formset:
+                # Extract data from the form
+                question_text = form.cleaned_data.get('text')
+                marks = form.cleaned_data.get('marks')
+                choices_data = [
+                    form.cleaned_data.get('choice_1'),
+                    form.cleaned_data.get('choice_2'),
+                    form.cleaned_data.get('choice_3'),
+                    form.cleaned_data.get('choice_4'),
+                ]
+                correct_choice_index = int(form.cleaned_data.get('correct_choice')) - 1
+
+                # Create Question and Choice objects in the database
+                if question_text:
+                    question = Question.objects.create(quiz=quiz, text=question_text, marks=marks)
+                    for i, choice_text in enumerate(choices_data):
+                        if choice_text:
+                            is_correct = (i == correct_choice_index)
+                            Choice.objects.create(question=question, text=choice_text, is_correct=is_correct)
+            
+            messages.success(request, "Questions added successfully!")
+            return redirect('quiz_detail', quiz_id=quiz.id)
+    else:
+        formset = QuestionFormSet()
+
+    context = {
+        'quiz': quiz,
+        'formset': formset,
+        'page_title': f'Add Questions to: {quiz.title}'
+    }
+    return render(request, 'staff_template/quiz_builder.html', context)
+
+@login_required
+def session_dashboard(request, session_id):
+    """
+    Displays a live dashboard for a quiz session, showing student progress and scores.
+    """
+    staff = get_object_or_404(Staff, admin=request.user)
+    session = get_object_or_404(QuizSession, id=session_id, created_by=staff)
+
+    attempts = session.attempts.select_related('student').all()
+
+    # Calculate summary statistics
+    total_students_joined = attempts.count()
+    submitted_attempts = attempts.filter(status=QuizAttempt.STATUS_SUBMITTED)
+    completed_count = submitted_attempts.count()
+    
+    # Calculate average score, handling the case where no one has submitted yet
+    average_score_data = submitted_attempts.aggregate(average_score=Avg('score'))
+    average_score = average_score_data.get('average_score')
+    if average_score is not None:
+        average_score = round(average_score, 2) # Round to 2 decimal places
+
+    context = {
+        'session': session,
+        'attempts': attempts,
+        'total_students_joined': total_students_joined,
+        'completed_count': completed_count,
+        'average_score': average_score,
+        'page_title': f"Dashboard: {session.quiz.title}"
+    }
+    return render(request, 'staff_template/session_dashboard.html', context)

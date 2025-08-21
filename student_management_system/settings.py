@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('MY_SECRET_KEY')  # Consider using your secret key
+SECRET_KEY = "5#l56!m7*g%8rf*os&rzqsd=^wwjc$fg0#&9@lxx)=-c0_$6-)"  # Consider using your secret key
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -57,10 +57,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     # Third Part Middleware
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    # 'whitenoise.middleware.WhiteNoiseMiddleware',
 
     # My Middleware
-    'main_app.middleware.LoginCheckMiddleWare',
+    # 'main_app.middleware.LoginCheckMiddleWare',
 ]
 
 ROOT_URLCONF = 'student_management_system.urls'
@@ -81,7 +81,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'student_management_system.wsgi.application'
+# WSGI_APPLICATION = 'student_management_system.wsgi.application'
 
 
 # Database

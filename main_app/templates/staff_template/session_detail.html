@@ -1,0 +1,37 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card card-success">
+                    <div class="card-header">
+                        <h3 class="card-title">Session for '{{ session.quiz.title }}' is Live!</h3>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="alert alert-info">Project this screen or share the code with your students to let them join the quiz.</div>
+                        <h3 class="mt-4">Join with this code:</h3>
+                        <h1 style="font-size: 5rem; font-weight: bold; letter-spacing: 0.5rem; background-color: #f0f0f0; padding: 25px; border-radius: 10px; display: inline-block;">
+                            {{ session.session_code }}
+                        </h1>
+                        <hr class="my-4">
+                        <h3>Or scan this QR Code:</h3>
+                        {% if session.qr_code.url %}
+                            <img src="{{ session.qr_code.url }}" alt="QR Code for session {{ session.session_code }}" class="img-fluid" style="max-width: 250px; border: 5px solid #eee;">
+                        {% else %}
+                            <p class="text-danger">QR Code could not be generated. Ensure the 'qrcode' library is installed and your media files are configured.</p>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer">
+                        <!-- THIS IS THE FIX: The object is 'session', not 'quiz' -->
+                        <a href="{% url 'quiz_detail' session.quiz.id %}" class="btn btn-secondary">Back to Quiz Details</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}

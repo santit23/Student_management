@@ -1,0 +1,37 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}Add Choice{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card card-primary">
+                    <div class="card-header">
+                        <h3 class="card-title">Add Choice for: "{{ question.text|truncatechars:50 }}"</h3>
+                    </div>
+                    <form role="form" method="POST" action="">
+                        {% csrf_token %}
+                        <div class="card-body">
+                            {% for field in form %}
+                            <div class="form-group">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                {% for error in field.errors %}
+                                <div class="alert alert-danger">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" class="btn btn-primary">Add Choice</button>
+                            <a href="{% url 'quiz_detail' question.quiz.id %}" class="btn btn-secondary">Back to Quiz</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}
