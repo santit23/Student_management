@@ -1,0 +1,55 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <!-- Page Header -->
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Question Analysis</h1>
+                <h4 class="text-muted">{{ session.quiz.title }} <small>[{{ session.session_code }}]</small></h4>
+            </div>
+            <div class="col-sm-6 text-right">
+                 <a href="{% url 'session_dashboard' session.id %}" class="btn btn-outline-secondary mt-3"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+            </div>
+        </div>
+
+        {% for item in item_analysis_data %}
+        <div class="card card-outline card-info">
+            <div class="card-header">
+                <h3 class="card-title"><strong>Q{{ forloop.counter }}:</strong> {{ item.question.text|safe }}</h3>
+                <div class="card-tools">
+                    <span class="badge badge-primary">{{ item.difficulty_percentage|floatformat:1 }}% Answered Correctly</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <h6>Response Distribution:</h6>
+                {% for choice in item.choice_stats %}
+                <div class="choice-stat mb-2">
+                    <div class="choice-text">
+                        {{ choice.text }}
+                        {% if choice.is_correct %}
+                            <i class="fas fa-check-circle text-success ml-2" title="Correct Answer"></i>
+                        {% endif %}
+                        <span class="float-right"><strong>{{ choice.times_selected }}</strong> student(s)</span>
+                    </div>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar {% if choice.is_correct %}bg-success{% else %}bg-secondary{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ choice.selection_percentage }}%;" 
+                             aria-valuenow="{{ choice.selection_percentage }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                             {{ choice.selection_percentage|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock content %}

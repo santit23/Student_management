@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.forms import formset_factory
-from django.db.models import Avg
+from django.db.models import Avg, Max, Min, StdDev, Count
 
 from .forms import *
 from .models import *
@@ -352,7 +352,9 @@ def quiz_detail(request, quiz_id):
     staff = get_object_or_404(Staff, admin=request.user)
     quiz = get_object_or_404(Quiz, id=quiz_id, created_by=staff)
     
-    questions = quiz.questions.all()
+    # questions = quiz.questions.all()
+    questions = quiz.questions.prefetch_related('choices').all()
+    sessions = quiz.sessions.all()
     
     context = {
         "quiz": quiz, 
@@ -493,33 +495,168 @@ def quiz_builder(request, quiz_id):
     }
     return render(request, 'staff_template/quiz_builder.html', context)
 
+# @login_required
+# def session_dashboard(request, session_id):
+#     """
+#     Displays a live dashboard for a quiz session, showing student progress and scores.
+#     """
+#     staff = get_object_or_404(Staff, admin=request.user)
+#     session = get_object_or_404(QuizSession, id=session_id, created_by=staff)
+
+#     attempts = session.attempts.select_related('student').all()
+
+#     # Calculate summary statistics
+#     total_students_joined = attempts.count()
+#     submitted_attempts = attempts.filter(status=QuizAttempt.STATUS_SUBMITTED)
+#     completed_count = submitted_attempts.count()
+    
+#     # Calculate average score, handling the case where no one has submitted yet
+#     average_score_data = submitted_attempts.aggregate(average_score=Avg('score'))
+#     average_score = average_score_data.get('average_score')
+#     if average_score is not None:
+#         average_score = round(average_score, 2) # Round to 2 decimal places
+
+#     context = {
+#         'session': session,
+#         'attempts': attempts,
+#         'total_students_joined': total_students_joined,
+#         'completed_count': completed_count,
+#         'average_score': average_score,
+#         'page_title': f"Dashboard: {session.quiz.title}"
+#     }
+#     return render(request, 'staff_template/session_dashboard.html', context)
+
+
+# Add these to your imports at the top
+from django.db.models import Avg, Max, Min, StdDev, Count
+
+# In staff_view.py
+
+from django.db.models import Avg, Max, Min, StdDev, Count # Make sure these are imported
+
 @login_required
 def session_dashboard(request, session_id):
     """
-    Displays a live dashboard for a quiz session, showing student progress and scores.
+    Displays a rich analysis dashboard for a quiz session, including performance stats and charts.
     """
     staff = get_object_or_404(Staff, admin=request.user)
     session = get_object_or_404(QuizSession, id=session_id, created_by=staff)
-
-    attempts = session.attempts.select_related('student').all()
-
-    # Calculate summary statistics
-    total_students_joined = attempts.count()
-    submitted_attempts = attempts.filter(status=QuizAttempt.STATUS_SUBMITTED)
-    completed_count = submitted_attempts.count()
     
-    # Calculate average score, handling the case where no one has submitted yet
-    average_score_data = submitted_attempts.aggregate(average_score=Avg('score'))
-    average_score = average_score_data.get('average_score')
-    if average_score is not None:
-        average_score = round(average_score, 2) # Round to 2 decimal places
+    # --- THIS IS THE FIX ---
+    # Calculate total_marks_possible early, as it's always needed.
+    total_marks_possible = sum(q.marks for q in session.quiz.questions.all())
+    
+    # Get all submitted attempts for this session
+    submitted_attempts = session.attempts.filter(status=QuizAttempt.STATUS_SUBMITTED).select_related('student__admin')
+
+    # Handle the case where there are no submissions yet
+    if not submitted_attempts.exists():
+        context = {
+            'session': session,
+            'page_title': f"Dashboard: {session.quiz.title}",
+            'no_submissions': True,
+            # Pass a default value for total_marks_possible even if no one took the quiz
+            'total_marks_possible': total_marks_possible, 
+        }
+        return render(request, 'staff_template/session_dashboard.html', context)
+
+    # --- Calculations for when submissions EXIST ---
+    
+    # Avoid division by zero if a quiz has no marks
+    safe_total_marks = total_marks_possible if total_marks_possible > 0 else 1
+
+    performance_stats = submitted_attempts.aggregate(
+        avg_score=Avg('score'),
+        max_score=Max('score'),
+        min_score=Min('score'),
+        std_dev=StdDev('score')
+    )
+
+    total_students_in_course = Student.objects.filter(course=session.quiz.subject.course).count()
+    total_students_joined = submitted_attempts.values('student').distinct().count()
+    participation_rate = (total_students_joined / total_students_in_course) * 100 if total_students_in_course > 0 else 0
+
+    score_percentages = [ (attempt.score / safe_total_marks) * 100 for attempt in submitted_attempts ]
+    bins = [0] * 10 
+    for p in score_percentages:
+        index = min(int(p / 10), 9)
+        if p == 0:
+            bins[0] += 1
+        elif index > 0:
+            bins[index] +=1
+        else:
+            bins[0] +=1
+
+    histogram_data = {
+        'labels': ["0-10%", "10-20%", "20-30%", "30-40%", "40-50%", "50-60%", "60-70%", "70-80%", "80-90%", "90-100%"],
+        'data': bins
+    }
 
     context = {
         'session': session,
-        'attempts': attempts,
+        'page_title': f"Analysis for {session.quiz.title}",
+        'no_submissions': False,
+        'performance_stats': performance_stats,
+        'total_marks_possible': total_marks_possible,
         'total_students_joined': total_students_joined,
-        'completed_count': completed_count,
-        'average_score': average_score,
-        'page_title': f"Dashboard: {session.quiz.title}"
+        'participation_rate': participation_rate,
+        'histogram_data': histogram_data,
+        'student_attempts': submitted_attempts.order_by('-score'),
     }
     return render(request, 'staff_template/session_dashboard.html', context)
+
+@login_required
+def item_analysis(request, session_id):
+    """
+    Provides a detailed, question-by-question analysis for a quiz session.
+    """
+    staff = get_object_or_404(Staff, admin=request.user)
+    session = get_object_or_404(QuizSession, id=session_id, created_by=staff)
+    
+    # Get all submitted attempts for this session
+    attempts = session.attempts.filter(status=QuizAttempt.STATUS_SUBMITTED)
+    
+    if not attempts.exists():
+        messages.warning(request, "There are no student submissions to analyze for this session yet.")
+        return redirect('session_dashboard', session_id=session.id)
+
+    questions = session.quiz.questions.prefetch_related('choices').all()
+    
+    item_analysis_data = []
+    for question in questions:
+        # Get all answers for this specific question from all attempts in this session
+        answers_for_question = Answer.objects.filter(attempt__in=attempts, question=question)
+        total_answers = answers_for_question.count()
+
+        if total_answers > 0:
+            # Calculate how many students answered this question correctly
+            correct_answers = answers_for_question.filter(selected_choice__is_correct=True).count()
+            difficulty_percentage = (correct_answers / total_answers) * 100
+            
+            # Calculate how many students chose each specific option
+            choice_stats = []
+            for choice in question.choices.all():
+                times_selected = answers_for_question.filter(selected_choice=choice).count()
+                selection_percentage = (times_selected / total_answers) * 100
+                choice_stats.append({
+                    'text': choice.text,
+                    'is_correct': choice.is_correct,
+                    'times_selected': times_selected,
+                    'selection_percentage': selection_percentage
+                })
+        else:
+            difficulty_percentage = None
+            choice_stats = []
+
+        item_analysis_data.append({
+            'question': question,
+            'difficulty_percentage': difficulty_percentage,
+            'choice_stats': choice_stats
+        })
+
+    context = {
+        'session': session,
+        'item_analysis_data': item_analysis_data,
+        'page_title': f"Item Analysis for {session.quiz.title}"
+    }
+    return render(request, 'staff_template/item_analysis.html', context)

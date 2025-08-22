@@ -112,6 +112,7 @@ urlpatterns = [
          name='edit_student_result'),
     path('staff/result/fetch/', staff_views.fetch_student_result,
          name='fetch_student_result'),
+     path('staff/session/<int:session_id>/item-analysis/', staff_views.item_analysis, name='item_analysis'),   
      
      # Quiz Management
      path("staff/quizzes/", staff_views.quiz_list, name="quiz_list"),
@@ -122,7 +123,7 @@ urlpatterns = [
      path("staff/question/<int:question_id>/add-choice/", staff_views.choice_add, name="choice_add"),
      path('staff/quiz/<int:quiz_id>/session/create/', staff_views.quiz_session_create, name='quiz_session_create'),
      path("staff/session/<int:session_id>/", staff_views.session_detail, name="session_detail"),
-      path('staff/session/<int:session_id>/dashboard/', staff_views.session_dashboard, name='session_dashboard'),
+     path('staff/session/<int:session_id>/dashboard/', staff_views.session_dashboard, name='session_dashboard'),
 
 
 

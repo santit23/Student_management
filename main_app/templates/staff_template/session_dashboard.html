@@ -8,102 +8,161 @@
         <!-- Page Header -->
         <div class="row mb-2">
             <div class="col-sm-6">
-                <h1>Session Dashboard</h1>
-                <h4 class="text-muted">{{ session.quiz.title }} [{{ session.session_code }}]</h4>
+                <h1>Session Analysis</h1>
+                <h4 class="text-muted">{{ session.quiz.title }} <small>[{{ session.session_code }}]</small></h4>
             </div>
             <div class="col-sm-6 text-right">
                  <a href="{% url 'session_detail' session.id %}" class="btn btn-outline-info mt-3"><i class="fas fa-qrcode"></i> Show Join Code</a>
+                 <!-- Link to the new, more detailed analysis page -->
+                 <a href="{% url 'item_analysis' session.id %}" class="btn btn-outline-primary mt-3"><i class="fas fa-tasks"></i> Detailed Question Analysis</a>
             </div>
         </div>
 
-        <!-- Stat Boxes -->
-        <div class="row">
-            <div class="col-lg-4 col-6">
-                <div class="small-box bg-info">
-                    <div class="inner">
-                        <h3>{{ total_students_joined }}</h3>
-                        <p>Students Joined</p>
+        {% if no_submissions %}
+            <div class="alert alert-warning text-center">
+                <h4>No Submissions Yet</h4>
+                <p>There is no data to analyze because no students have completed this quiz session yet. The dashboard will populate as results come in.</p>
+            </div>
+        {% else %}
+            <!-- Stat Boxes (High-Level Summary) -->
+            <div class="row">
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-info">
+                        <div class="inner">
+                            <h3>{{ total_students_joined }}</h3>
+                            <p>Students Submitted</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-users"></i></div>
                     </div>
-                    <div class="icon"><i class="fas fa-users"></i></div>
+                </div>
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-primary">
+                        <div class="inner">
+                            <h3>{{ participation_rate|floatformat:1 }}<sup style="font-size: 20px">%</sup></h3>
+                            <p>Participation Rate</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-chart-pie"></i></div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-success">
+                        <div class="inner">
+                            <h3>{{ performance_stats.avg_score|floatformat:2 }}</h3>
+                            <p>Average Score</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-star-half-alt"></i></div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-6">
+                    <div class="small-box bg-warning">
+                        <div class="inner">
+                            <h3>{{ performance_stats.max_score|floatformat:2 }}</h3>
+                            <p>Highest Score</p>
+                        </div>
+                        <div class="icon"><i class="fas fa-trophy"></i></div>
+                    </div>
                 </div>
             </div>
-            <div class="col-lg-4 col-6">
-                <div class="small-box bg-success">
-                    <div class="inner">
-                        <h3>{{ completed_count }}</h3>
-                        <p>Submissions Completed</p>
-                    </div>
-                    <div class="icon"><i class="fas fa-check-circle"></i></div>
-                </div>
-            </div>
-            <div class="col-lg-4 col-6">
-                <div class="small-box bg-warning">
-                    <div class="inner">
-                        <h3>{{ average_score|default:"N/A" }}</h3>
-                        <p>Average Score</p>
-                    </div>
-                    <div class="icon"><i class="fas fa-star-half-alt"></i></div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Results Table -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Student Leaderboard</h3>
-                        <div class="card-tools">
-                           <span class="text-muted font-italic">Page auto-refreshes every 30 seconds.</span>
+            <!-- Chart and Leaderboard Row -->
+            <div class="row">
+                <!-- Score Distribution Chart -->
+                <div class="col-md-6">
+                    <div class="card card-secondary">
+                        <div class="card-header">
+                            <h3 class="card-title">Score Distribution</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart">
+                                <canvas id="scoreDistributionChart" style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas>
+                            </div>
                         </div>
                     </div>
-                    <div class="card-body table-responsive p-0">
-                        <table class="table table-hover text-nowrap">
-                            <thead>
-                                <tr>
-                                    <th>Rank</th>
-                                    <th>Student Name</th>
-                                    <th>Status</th>
-                                    <th>Score</th>
-                                    <th>Submitted At</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for attempt in attempts|dictsortreversed:"score" %}
-                                <tr>
-                                    <td>{{ forloop.counter }}</td>
-                                    <td>{{ attempt.student.admin.get_full_name }}</td>
-                                    <td>
-                                        {% if attempt.status == 'submitted' %}
-                                            <span class="badge badge-success">Submitted</span>
-                                        {% else %}
-                                            <span class="badge badge-warning">In Progress</span>
-                                        {% endif %}
-                                    </td>
-                                    <td><strong>{{ attempt.score|floatformat:2 }}</strong></td>
-                                    <td>{{ attempt.submitted_at|date:"d M Y, h:i A"|default:"--" }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center p-4">No students have joined this session yet.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                </div>
+                <!-- Leaderboard Table -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Student Leaderboard</h3>
+                        </div>
+                        <div class="card-body table-responsive p-0" style="height: 300px;">
+                            <table class="table table-head-fixed text-nowrap">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Student Name</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for attempt in student_attempts %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ attempt.student.admin.get_full_name }}</td>
+                                        <td><strong>{{ attempt.score|floatformat:2 }} / {{ total_marks_possible|floatformat:2 }}</strong></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        {% endif %}
     </div>
 </section>
 {% endblock content %}
 
 {% block custom_js %}
+{% if not no_submissions %}
+<!-- Make sure you have Chart.js included in your project's static files -->
+<script src="{% static 'plugins/chart.js/Chart.min.js' %}"></script>
 <script>
-    // This script will automatically refresh the page every 30 seconds (30000 milliseconds)
-    // to update the dashboard with new results.
-    setTimeout(function() {
-        window.location.reload();
-    }, 30000);
+$(function () {
+    // --- SCORE DISTRIBUTION CHART ---
+    var barChartCanvas = $('#scoreDistributionChart').get(0).getContext('2d');
+    var barChartData = {
+        labels: {{ histogram_data.labels|safe }},
+        datasets: [
+            {
+                label: 'Number of Students',
+                backgroundColor: 'rgba(60,141,188,0.9)',
+                borderColor: 'rgba(60,141,188,0.8)',
+                borderWidth: 1,
+                data: {{ histogram_data.data|safe }}
+            }
+        ]
+    };
+
+    var barChartOptions = {
+        maintainAspectRatio: false,
+        responsive: true,
+        legend: { display: false },
+        scales: {
+            xAxes: [{
+                gridLines: { display: false },
+                scaleLabel: {
+                    display: true,
+                    labelString: 'Score Range'
+                }
+            }],
+            yAxes: [{
+                ticks: { beginAtZero: true, stepSize: 1 }, // Ensures y-axis is in whole numbers for student counts
+                scaleLabel: {
+                    display: true,
+                    labelString: 'Number of Students'
+                }
+            }]
+        }
+    };
+
+    // Create the chart
+    new Chart(barChartCanvas, {
+        type: 'bar',
+        data: barChartData,
+        options: barChartOptions
+    });
+});
 </script>
+{% endif %}
 {% endblock custom_js %}

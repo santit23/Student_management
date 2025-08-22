@@ -27,6 +27,7 @@
                         <a href="{% url 'quiz_session_create' quiz.id %}" class="btn btn-success">
                             <i class="fas fa-play"></i> Create New Session
                         </a>
+                        
                         <a href="{% url 'quiz_list' %}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to All Quizzes
                         </a>
@@ -86,53 +87,42 @@
 ...
                 <!-- Card 3: Existing Sessions List -->
                 <div class="card card-secondary">
-                    <div class="card-header">
-                        <h3 class="card-title">Sessions for this Quiz</h3>
-                    </div>
-                    <div class="card-body table-responsive p-0">
-                        <table class="table table-hover text-nowrap">
-                            <thead>
-                                <tr>
-                                    <th>Session Code</th>
-                                    <th>Status</th>
-                                    <th>Created On</th>
-                                    <th>Start/End Times</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for session in quiz.sessions.all %}
-                                <tr>
-                                    <td><strong>{{ session.session_code }}</strong></td>
-                                    <td>
-                                        {% if session.is_active %}
-                                            <span class="badge badge-success">Active</span>
-                                        {% else %}
-                                            <span class="badge badge-danger">Inactive</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ session.created_at|date:"d M Y, h:i A" }}</td>
-                                    <td>
-                                        {% if session.starts_at %}
-                                            {{ session.starts_at|date:"d M Y, h:i A" }} - {{ session.ends_at|date:"d M Y, h:i A" }}
-                                        {% else %}
-                                            Always Open
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'session_detail' session.id %}" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-eye"></i> View
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                        {% if not quiz.sessions.all %}
-                            <p class="p-3">No sessions have been created for this quiz yet.</p>
-                        {% endif %}
-                    </div>
-                </div>
+    <div class="card-header">
+        <h3 class="card-title">Sessions for this Quiz</h3>
+    </div>
+    <div class="card-body table-responsive p-0">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Session Code</th>
+                    <th>Status</th>
+                    <th>Created On</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- The loop ensures each button gets the correct session ID -->
+                {% for session in sessions %}
+                <tr>
+                    <td><strong>{{ session.session_code }}</strong></td>
+                    <td>...</td>
+                    <td>...</td>
+                    <td>
+                        <a href="{% url 'session_detail' session.id %}" ...>View Code</a>
+                        
+                        <!-- THIS IS THE BUTTON YOU CLICK -->
+                        <a href="{% url 'session_dashboard' session.id %}" class="btn btn-sm btn-outline-info">
+                            <i class="fas fa-chart-bar"></i> Dashboard
+                        </a>
+                        
+                        <a href="{% url 'session_delete' session.pk %}" ...>Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 
             </div>
         </div>
