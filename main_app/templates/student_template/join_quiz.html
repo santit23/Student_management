@@ -5,23 +5,41 @@
 {% block content %}
 <section class="content">
     <div class="container-fluid">
-        <div class="row justify-content-center mt-5">
-            <div class="col-md-6">
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-7">
                 <div class="card card-primary">
                     <div class="card-header">
                         <h3 class="card-title">Join a Live Quiz Session</h3>
                     </div>
-                    <!-- The form sends the data back to this same view -->
-                    <form method="POST" action="{% url 'student_join_quiz' %}">
+                    <form method="POST" action="{% url 'student_join_quiz' %}" id="join-form">
                         {% csrf_token %}
                         <div class="card-body">
-                            <p class="text-muted">Your teacher will provide you with a 6-character code to join the quiz.</p>
+                            <p class="text-muted text-center">Enter the 6-character code from your teacher, or use the buttons below to join with a QR code.</p>
+                            
+                            <!-- Session Code Input -->
                             <div class="form-group">
                                 <label for="session_code">Enter Session Code</label>
-                                <input type="text" name="session_code" id="session_code" class="form-control form-control-lg text-center" 
+                                <input type="text" name="session_code" id="session_code_input" class="form-control form-control-lg text-center" 
                                        style="text-transform:uppercase; letter-spacing: 0.5rem; font-weight: bold;" 
                                        maxlength="6" required autofocus>
                             </div>
+                            <hr>
+
+                            <!-- QR Code Options -->
+                            <div class="text-center">
+                                <button type="button" class="btn btn-info" id="scan-qr-btn"><i class="fas fa-camera"></i> Scan with Camera</button>
+                                <button type="button" class="btn btn-secondary" onclick="document.getElementById('qr-upload-input').click();"><i class="fas fa-upload"></i> Upload QR Image</button>
+                                <input type="file" id="qr-upload-input" accept="image/*" class="d-none">
+                            </div>
+
+                            <!-- Hidden container for the camera scanner -->
+                            <div id="scanner-container" class="mt-3 text-center d-none">
+                                <video id="qr-video" playsinline style="width: 100%; max-width: 400px; border-radius: 5px;"></video>
+                                <canvas id="qr-canvas" class="d-none"></canvas>
+                                <p id="scanning-feedback" class="text-muted font-italic mt-2"></p>
+                                <button type="button" id="stop-scan-btn" class="btn btn-danger btn-sm mt-2">Cancel Scan</button>
+                            </div>
+
                         </div>
                         <div class="card-footer">
                             <button type="submit" class="btn btn-success btn-block">Find & Join Quiz</button>
@@ -33,3 +51,113 @@
     </div>
 </section>
 {% endblock content %}
+
+{% block custom_js %}
+<!-- Include the jsQR library from a CDN -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Get references to all the HTML elements we'll need
+    const video = document.getElementById('qr-video');
+    const canvasElement = document.getElementById('qr-canvas');
+    const canvas = canvasElement.getContext('2d', { willReadFrequently: true });
+    
+    const scannerContainer = document.getElementById('scanner-container');
+    const scanBtn = document.getElementById('scan-qr-btn');
+    const stopBtn = document.getElementById('stop-scan-btn');
+    const uploadInput = document.getElementById('qr-upload-input');
+    const sessionCodeInput = document.getElementById('session_code_input');
+    const joinForm = document.getElementById('join-form');
+    const scanningFeedback = document.getElementById('scanning-feedback');
+
+    let stream = null;
+    let animationFrameId = null;
+
+    // --- Function to handle a found QR code ---
+    function onCodeFound(code) {
+        if (code) {
+            scanningFeedback.textContent = "Code found! Joining quiz...";
+            sessionCodeInput.value = code.data.toUpperCase(); // Put the code in the input box
+            stopScanning();
+            joinForm.submit(); // Automatically submit the form
+        }
+    }
+
+    // --- Logic for Scanning with Camera ---
+    scanBtn.addEventListener('click', function() {
+        scannerContainer.classList.remove('d-none');
+        scanningFeedback.textContent = "Requesting camera access...";
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(function(videoStream) {
+                stream = videoStream;
+                video.srcObject = stream;
+                video.play();
+                scanningFeedback.textContent = "Point your camera at the QR code.";
+                animationFrameId = requestAnimationFrame(tick);
+            })
+            .catch(function(err) {
+                scanningFeedback.textContent = "Error: Could not access camera. Please check permissions.";
+                console.error(err);
+            });
+    });
+
+    function tick() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvasElement.height = video.videoHeight;
+            canvasElement.width = video.videoWidth;
+            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+            const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
+            onCodeFound(code);
+        }
+        // Continue scanning on the next frame
+        if (stream) {
+            animationFrameId = requestAnimationFrame(tick);
+        }
+    }
+
+    // --- Logic for Uploading a QR Image ---
+    uploadInput.addEventListener('change', function(e) {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    canvasElement.width = img.width;
+                    canvasElement.height = img.height;
+                    canvas.drawImage(img, 0, 0, img.width, img.height);
+                    const imageData = canvas.getImageData(0, 0, img.width, img.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    onCodeFound(code);
+                    if (!code) {
+                        alert("Could not find a QR code in the uploaded image.");
+                    }
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // --- Stop Scanning Logic ---
+    function stopScanning() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+        scannerContainer.classList.add('d-none');
+    }
+
+    stopBtn.addEventListener('click', stopScanning);
+});
+</script>
+{% endblock custom_js %}
