@@ -469,7 +469,12 @@
                         </p>
                     </a>
                 </li>
-          
+                <li class="nav-item">
+                    <a href="{% url 'student_join_quiz' %}" class="nav-link">
+                        <i class="nav-icon fas fa-keyboard"></i>
+                        <p>Join Quiz</p>
+                    </a>
+                </li>
                 <li class="nav-item">
                     {% url 'student_view_attendance' as student_view_attendance %}
                     <a href="{{student_view_attendance}}" class="nav-link {% if student_view_attendance == request.path %} active {% endif %}">

@@ -284,6 +284,24 @@ class QuizSession(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
+    @property
+    def is_open_now(self):
+        """
+        Returns True if the session is active and the current time is
+        within the optional start and end times.
+        """
+        now = timezone.now()
+        if not self.is_active:
+            return False
+        # If a start time is set, the session is not open yet if 'now' is before it.
+        if self.starts_at and now < self.starts_at:
+            return False
+        # If an end time is set, the session is closed if 'now' is after it.
+        if self.ends_at and now > self.ends_at:
+            return False
+        # Otherwise, the session is open.
+        return True
+
     def __str__(self):
         return f"{self.quiz.title} [{self.session_code}]"
 

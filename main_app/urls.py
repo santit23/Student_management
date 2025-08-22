@@ -142,6 +142,12 @@ urlpatterns = [
          name="student_view_notification"),
     path('student/view/result/', student_views.student_view_result,
          name='student_view_result'),
+
+     # Quiz
+     path('student/quiz/join/', student_views.student_join_quiz, name='student_join_quiz'),
+     path('student/quiz/<int:session_id>/lobby/', student_views.quiz_lobby, name='quiz_lobby'),
+     path('student/quiz/<int:session_id>/take/', student_views.quiz_take, name='quiz_take'),
+     path('student/quiz/attempt/<int:attempt_id>/result/', student_views.quiz_result, name='quiz_result'),
      
 
 ]  + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

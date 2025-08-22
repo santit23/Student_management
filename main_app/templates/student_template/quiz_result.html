@@ -1,0 +1,31 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-8">
+                <div class="card card-success text-center">
+                    <div class="card-header">
+                        <h3 class="card-title">Quiz Completed!</h3>
+                    </div>
+                    <div class="card-body">
+                        <h2>{{ attempt.session.quiz.title }}</h2>
+                        <p class="lead text-muted">Here's how you did:</p>
+                        <hr>
+                        <h1 class="display-3">Your Score:</h1>
+                        <h1 class="display-1" style="font-weight: bold;">
+                            {{ attempt.score|floatformat:2 }} / {{ total_marks_possible|floatformat:2 }}
+                        </h1>
+                        <hr>
+                        <p>Your results have been submitted to your teacher.</p>
+                        <a href="{% url 'student_home' %}" class="btn btn-primary mt-3">Back to My Dashboard</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}

@@ -1,0 +1,56 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <!-- The form submits the answers back to this same view -->
+        <form method="POST" action="{% url 'quiz_take' session.id %}">
+            {% csrf_token %}
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <div class="card card-success">
+                        <div class="card-header">
+                            <h3 class="card-title">{{ session.quiz.title }}</h3>
+                            <div class="card-tools">
+                                <!-- A countdown timer could be added here with JavaScript -->
+                                <span class="badge badge-light">Time Limit: {{ session.quiz.duration_minutes }} Minutes</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% for question in questions %}
+                            <div class="card card-outline card-secondary mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title">Question {{ forloop.counter }} <small>({{ question.marks }} marks)</small></h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="lead">{{ question.text|safe }}</p>
+                                    <hr>
+                                    <div class="form-group">
+                                        {% for choice in question.choices.all %}
+                                        <div class="form-check mb-2">
+                                            <!-- The name attribute is crucial for processing the form -->
+                                            <input class="form-check-input" type="radio" 
+                                                   name="question_{{ question.id }}" id="choice_{{ choice.id }}" 
+                                                   value="{{ choice.id }}" required>
+                                            <label class="form-check-label" for="choice_{{ choice.id }}">
+                                                {{ choice.text }}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="card-footer text-center">
+                            <button type="submit" class="btn btn-primary btn-lg">Submit My Answers</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock content %}

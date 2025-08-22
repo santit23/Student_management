@@ -1,0 +1,35 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-6">
+                <div class="card card-primary">
+                    <div class="card-header">
+                        <h3 class="card-title">Join a Live Quiz Session</h3>
+                    </div>
+                    <!-- The form sends the data back to this same view -->
+                    <form method="POST" action="{% url 'student_join_quiz' %}">
+                        {% csrf_token %}
+                        <div class="card-body">
+                            <p class="text-muted">Your teacher will provide you with a 6-character code to join the quiz.</p>
+                            <div class="form-group">
+                                <label for="session_code">Enter Session Code</label>
+                                <input type="text" name="session_code" id="session_code" class="form-control form-control-lg text-center" 
+                                       style="text-transform:uppercase; letter-spacing: 0.5rem; font-weight: bold;" 
+                                       maxlength="6" required autofocus>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" class="btn btn-success btn-block">Find & Join Quiz</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}

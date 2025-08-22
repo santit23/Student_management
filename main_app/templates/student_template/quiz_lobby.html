@@ -1,0 +1,42 @@
+{% extends 'main_app/base.html' %}
+{% load static %}
+{% block page_title %}{{page_title}}{% endblock page_title %}
+
+{% block content %}
+<section class="content">
+    <div class="container-fluid">
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-8">
+                <div class="card card-info text-center">
+                    <div class="card-header">
+                        <h3 class="card-title">You Are About to Begin a Quiz</h3>
+                    </div>
+                    <div class="card-body">
+                        <h2>{{ session.quiz.title }}</h2>
+                        <p class="lead text-muted">Subject: {{ session.quiz.subject.name }}</p>
+                        <hr>
+                        <div class="row">
+                            <div class="col-6">
+                                <h5><i class="fas fa-question-circle"></i> Total Questions</h5>
+                                <p class="h4">{{ session.quiz.questions.count }}</p>
+                            </div>
+                            <div class="col-6">
+                                <h5><i class="fas fa-clock"></i> Time Limit</h5>
+                                <p class="h4">{{ session.quiz.duration_minutes }} Minutes</p>
+                            </div>
+                        </div>
+                        <hr>
+                        <p>When you are ready, click the button below to start the quiz. The timer will begin immediately.</p>
+                        <p>Good luck!</p>
+
+                        <!-- This link points to the next step, which we will build soon -->
+                        <a href="{% url 'quiz_take' session.id %}" class="btn btn-primary btn-lg mt-3">
+                            <i class="fas fa-play"></i> Start Quiz Now
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock content %}
