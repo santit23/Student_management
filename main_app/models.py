@@ -357,6 +357,8 @@ class QuizAttempt(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     submitted_at = models.DateTimeField(blank=True, null=True)
     score = models.FloatField(default=0.0)
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
 
     class Meta:
         unique_together = ("session", "student", "attempt_no")

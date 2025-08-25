@@ -13,7 +13,6 @@
             </div>
             <div class="col-sm-6 text-right">
                  <a href="{% url 'session_detail' session.id %}" class="btn btn-outline-info mt-3"><i class="fas fa-qrcode"></i> Show Join Code</a>
-                 <!-- Link to the new, more detailed analysis page -->
                  <a href="{% url 'item_analysis' session.id %}" class="btn btn-outline-primary mt-3"><i class="fas fa-tasks"></i> Detailed Question Analysis</a>
             </div>
         </div>
@@ -92,6 +91,7 @@
                                         <th>Rank</th>
                                         <th>Student Name</th>
                                         <th>Score</th>
+                                        <th>Location</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -100,6 +100,15 @@
                                         <td>{{ forloop.counter }}</td>
                                         <td>{{ attempt.student.admin.get_full_name }}</td>
                                         <td><strong>{{ attempt.score|floatformat:2 }} / {{ total_marks_possible|floatformat:2 }}</strong></td>
+                                        <td>
+                                            {% if attempt.latitude and attempt.longitude %}
+                                                <a href="https://www.google.com/maps/search/?api=1&query={{ attempt.latitude }},{{ attempt.longitude }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="View location on map">
+                                                    <i class="fas fa-map-marker-alt"></i> View Map
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted">Not provided</span>
+                                            {% endif %}
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -143,7 +152,7 @@ $(function () {
                 gridLines: { display: false },
                 scaleLabel: {
                     display: true,
-                    labelString: 'Score Range'
+                    labelString: 'Score Range (%)'
                 }
             }],
             yAxes: [{

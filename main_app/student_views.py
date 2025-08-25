@@ -1,5 +1,6 @@
 import json
 import math
+import requests
 from datetime import datetime
 
 from django.contrib import messages
@@ -21,7 +22,6 @@ def student_required(view_func):
     @login_required
     def _wrapped_view(request, *args, **kwargs):
         if not hasattr(request.user, 'user_type') or request.user.user_type != '3':
-            # Redirect non-students to the login page or another appropriate page
             return redirect('login') 
         return view_func(request, *args, **kwargs)
     return _wrapped_view
@@ -32,7 +32,7 @@ def student_home(request):
     total_subject = Subject.objects.filter(course=student.course).count()
     total_attendance = AttendanceReport.objects.filter(student=student).count()
     total_present = AttendanceReport.objects.filter(student=student, status=True).count()
-    if total_attendance == 0:  # Don't divide. DivisionByZero
+    if total_attendance == 0: 
         percent_absent = percent_present = 0
     else:
         percent_present = math.floor((total_present/total_attendance) * 100)
@@ -224,7 +224,6 @@ def student_view_result(request):
 
 def student_join_quiz(request):
     if request.method == 'POST':
-        # Get the code from the form, remove whitespace, and make it uppercase
         session_code = request.POST.get('session_code', '').strip().upper()
         
         if not session_code:
@@ -232,23 +231,17 @@ def student_join_quiz(request):
             return redirect('student_join_quiz')
 
         try:
-            # Find the quiz session with the matching code
             quiz_session = QuizSession.objects.get(session_code=session_code)
             
-            # Check if the session is currently active and open
             if not quiz_session.is_open_now:
                 messages.error(request, "This quiz session is not currently active or has ended.")
                 return redirect('student_join_quiz')
                 
-            # If the code is valid and the session is open, redirect to the next step (the lobby)
-            # We will create the 'quiz_lobby' view in the next step.
             return redirect('quiz_lobby', session_id=quiz_session.id)
             
         except QuizSession.DoesNotExist:
-            # If no session is found with that code, show an error message.
             messages.error(request, "Invalid session code. Please check the code and try again.")
 
-    # For a GET request, just show the page
     return render(request, 'student_template/join_quiz.html', {'page_title': 'Join a Quiz'})
 
 @student_required
@@ -260,20 +253,29 @@ def quiz_lobby(request, session_id):
     session = get_object_or_404(QuizSession, id=session_id)
     student = get_object_or_404(Student, admin=request.user)
     
-    # Count how many times this student has already attempted this specific quiz session.
     existing_attempts = QuizAttempt.objects.filter(session=session, student=student).count()
 
-    # If their attempt count is greater than or equal to the allowed maximum...
     if existing_attempts >= session.max_attempts_per_student:
         messages.warning(request, "You have already completed the maximum number of attempts for this quiz.")
-        # Redirect them away from the lobby to their main dashboard.
-        return redirect('student_home') # Make sure you have a 'student_home' URL
+        return redirect('student_home') 
 
     context = {
         'session': session,
         'page_title': f"Ready to Start: {session.quiz.title}"
     }
     return render(request, 'student_template/quiz_lobby.html', context)
+
+def get_client_ip(request):
+    """A helper function to get the student's real IP address."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    # For local development
+    if ip == '127.0.0.1':
+        ip = '124.41.204.21' 
+    return ip
 
 @student_required
 def quiz_take(request, session_id):
@@ -283,49 +285,49 @@ def quiz_take(request, session_id):
     session = get_object_or_404(QuizSession, id=session_id)
     student = get_object_or_404(Student, admin=request.user)
     
-    # Get all questions for the quiz, pre-fetching their choices for efficiency
     questions = session.quiz.questions.prefetch_related('choices').all()
 
-    # --- Handle the form submission (POST request) ---
     if request.method == 'POST':
-        # Create a new attempt record for this student as soon as they submit
+        latitude, longitude = None, None
+        try:
+            ip_address = get_client_ip(request)
+            
+            response = requests.get(f'https://ipapi.co/{ip_address}/json/', timeout=5)
+            response.raise_for_status() 
+            
+            data = response.json()
+            if not data.get('error'):
+                latitude = data.get('latitude')
+                longitude = data.get('longitude')
+                print(f"Location found for IP {ip_address}: {latitude}, {longitude}")
+        except Exception as e:
+            print(f"Could not get location via IP address. Error: {e}")
+        
         attempt = QuizAttempt.objects.create(
             session=session,
             student=student,
-            status=QuizAttempt.STATUS_STARTED, # Initially set to started
-            attempt_no=QuizAttempt.objects.filter(session=session, student=student).count() + 1
+            status=QuizAttempt.STATUS_STARTED,
+            attempt_no=QuizAttempt.objects.filter(session=session, student=student).count() + 1,
+            latitude=latitude,
+            longitude=longitude
         )
         
         total_score = 0
-
-        # Loop through each question to check the submitted answer
         for question in questions:
-            # The name of the input in the form is 'question_1', 'question_2', etc.
             submitted_choice_id = request.POST.get(f'question_{question.id}')
-            
             if submitted_choice_id:
-                try:
-                    selected_choice = get_object_or_404(Choice, id=submitted_choice_id)
-                    # Save the student's answer to the database
-                    Answer.objects.create(attempt=attempt, question=question, selected_choice=selected_choice)
-                    
-                    # If the selected choice was the correct one, add the question's marks to the score
-                    if selected_choice.is_correct:
-                        total_score += question.marks
-                except (ValueError, Choice.DoesNotExist):
-                    # Handle cases where a bad value is submitted
-                    pass
+                selected_choice = get_object_or_404(Choice, id=submitted_choice_id)
+                Answer.objects.create(attempt=attempt, question=question, selected_choice=selected_choice)
+                if selected_choice.is_correct:
+                    total_score += question.marks
         
-        # Update the attempt with the final score and mark it as submitted
         attempt.score = total_score
         attempt.status = QuizAttempt.STATUS_SUBMITTED
         attempt.submitted_at = timezone.now()
         attempt.save()
 
-        # Redirect to the results page, which we will build in the next step
         return redirect('quiz_result', attempt_id=attempt.id)
 
-    # --- For a normal page load (GET request), just display the questions ---
     context = {
         'session': session,
         'questions': questions,
@@ -340,10 +342,8 @@ def quiz_result(request, attempt_id):
     Displays the final score to the student immediately after they submit their quiz.
     """
     student = get_object_or_404(Student, admin=request.user)
-    # Ensure a student can only see their own results for security.
     attempt = get_object_or_404(QuizAttempt, id=attempt_id, student=student)
 
-    # Calculate the total possible marks for the quiz to display (e.g., "15 / 20")
     total_marks_possible = sum(q.marks for q in attempt.session.quiz.questions.all())
 
     context = {
