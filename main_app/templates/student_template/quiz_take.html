@@ -5,52 +5,206 @@
 {% block content %}
 <section class="content">
     <div class="container-fluid">
-        <!-- The form submits the answers back to this same view -->
-        <form method="POST" action="{% url 'quiz_take' session.id %}">
-            {% csrf_token %}
-            <div class="row justify-content-center">
-                <div class="col-md-10">
-                    <div class="card card-success">
-                        <div class="card-header">
-                            <h3 class="card-title">{{ session.quiz.title }}</h3>
-                            <div class="card-tools">
-                                <!-- A countdown timer could be added here with JavaScript -->
-                                <span class="badge badge-light">Time Limit: {{ session.quiz.duration_minutes }} Minutes</span>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            {% for question in questions %}
-                            <div class="card card-outline card-secondary mb-4">
-                                <div class="card-header">
-                                    <h5 class="card-title">Question {{ forloop.counter }} <small>({{ question.marks }} marks)</small></h5>
-                                </div>
-                                <div class="card-body">
-                                    <p class="lead">{{ question.text|safe }}</p>
-                                    <hr>
-                                    <div class="form-group">
-                                        {% for choice in question.choices.all %}
-                                        <div class="form-check mb-2">
-                                            <!-- The name attribute is crucial for processing the form -->
-                                            <input class="form-check-input" type="radio" 
-                                                   name="question_{{ question.id }}" id="choice_{{ choice.id }}" 
-                                                   value="{{ choice.id }}" required>
-                                            <label class="form-check-label" for="choice_{{ choice.id }}">
-                                                {{ choice.text }}
-                                            </label>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        <div class="card-footer text-center">
-                            <button type="submit" class="btn btn-primary btn-lg">Submit My Answers</button>
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+
+                <!-- PROCTORING ELEMENTS (Fixed in corner) -->
+                <div id="proctoring-container" class="d-none" style="position: fixed; top: 80px; right: 20px; z-index: 1050;">
+                    <!-- Canvas for visual debugging -->
+                    <canvas id="proctoring-canvas" style="position: absolute; top: 0; left: 0; width: 150px; height: 112px;"></canvas>
+                    <!-- Video feed -->
+                    <video id="webcam-video" playsinline muted autoplay style="width: 150px; height: 112px; border: 2px solid #ccc; border-radius: 5px;"></video>
+                    <!-- Alert message -->
+                    <div id="proctoring-alert" class="alert alert-danger mt-1 d-none" role="alert" style="font-size: 0.8rem; padding: 0.5rem; max-width: 150px;">
+                        <strong>Alert!</strong> Focus on screen.
+                    </div>
+                </div>
+
+                <!-- PRE-QUIZ INSTRUCTIONS (Shown first) -->
+                <div id="pre-quiz-container">
+                    <div class="card card-warning">
+                        <div class="card-header"><h3 class="card-title">Camera Check Required</h3></div>
+                        <div class="card-body text-center">
+                            <h4>This is a proctored quiz.</h4>
+                            <p class="lead">You must enable your webcam to begin. Your camera will be monitored for focus and attention.</p>
+                            <button id="start-proctoring-btn" class="btn btn-primary btn-lg">Start Quiz with Camera</button>
+                            <p id="proctoring-status" class="text-muted mt-2"></p>
                         </div>
                     </div>
                 </div>
+
+                <!-- QUIZ FORM (Initially hidden) -->
+                <div id="quiz-container" class="d-none">
+                    <form method="POST" action="">
+                        {% csrf_token %}
+                        <!-- ... (The entire quiz form card from the previous step goes here) ... -->
+                        <div class="card card-success">
+                            <div class="card-header"><h3 class="card-title">{{ session.quiz.title }}</h3></div>
+                            <div class="card-body">
+                                {% for question in questions %}
+                                <div class="card card-outline card-secondary mb-4">
+                                    <div class="card-header"><h5 class="card-title">Question {{ forloop.counter }}</h5></div>
+                                    <div class="card-body">
+                                        <p class="lead">{{ question.text|safe }}</p>
+                                        <hr>
+                                        <div class="form-group">
+                                            {% for choice in question.choices.all %}
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="question_{{ question.id }}" id="choice_{{ choice.id }}" value="{{ choice.id }}" required>
+                                                <label class="form-check-label" for="choice_{{ choice.id }}">{{ choice.text }}</label>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="card-footer text-center">
+                                <button type="submit" class="btn btn-primary btn-lg">Submit My Answers</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
             </div>
-        </form>
+        </div>
     </div>
 </section>
 {% endblock content %}
+
+{% block custom_js %}
+<!-- TensorFlow.js Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@1.0.5/dist/face-landmarks-detection.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Get all the HTML elements
+    const video = document.getElementById('webcam-video');
+    const proctoringAlert = document.getElementById('proctoring-alert');
+    const startBtn = document.getElementById('start-proctoring-btn');
+    const statusText = document.getElementById('proctoring-status');
+    const proctoringContainer = document.getElementById('proctoring-container');
+    const preQuizContainer = document.getElementById('pre-quiz-container');
+    const quizContainer = document.getElementById('quiz-container');
+
+    let detector, stream, alertTimeout;
+    let lastAlertTime = 0;
+
+    // This function runs when the "Start" button is clicked
+    startBtn.addEventListener('click', async function() {
+        // ... (The startBtn event listener code remains the same as the previous correct version)
+        updateStatus('Requesting camera access...');
+        startBtn.disabled = true;
+        if (typeof faceLandmarksDetection === 'undefined') {
+            updateStatus("AI library failed to load.", true);
+            startBtn.disabled = false;
+            return;
+        }
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            video.srcObject = stream;
+            video.onloadedmetadata = async () => {
+                video.play();
+                updateStatus('Camera active. Loading AI model...');
+                try {
+                    const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+                    const detectorConfig = {
+                        runtime: 'mediapipe',
+                        solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh',
+                        maxFaces: 1
+                    };
+                    detector = await faceLandmarksDetection.createDetector(model, detectorConfig);
+                    updateStatus('Model loaded. Starting quiz...');
+                    preQuizContainer.classList.add('d-none');
+                    quizContainer.classList.remove('d-none');
+                    proctoringContainer.classList.remove('d-none');
+                    runDetection();
+                } catch (e) {
+                    updateStatus(`Error: Could not initialize AI model.`, true);
+                    console.error("DETAILED MODEL ERROR:", e);
+                    startBtn.disabled = false;
+                    if (stream) { stream.getTracks().forEach(track => track.stop()); }
+                }
+            };
+        } catch (e) {
+            updateStatus("Camera access was denied.", true);
+            console.error("CAMERA ERROR:", e);
+            startBtn.disabled = false;
+        }
+    });
+
+    function updateStatus(message, isError = false) {
+        statusText.textContent = message;
+        statusText.style.color = isError ? 'red' : 'inherit';
+    }
+
+    // --- IMPROVED ALERT FUNCTION ---
+    function showAlert() {
+        const now = Date.now();
+        // Throttle alerts to once every 4 seconds to prevent spamming
+        if (now - lastAlertTime < 4000) return;
+        lastAlertTime = now;
+
+        // Flash the video border red
+        video.style.borderColor = '#dc3545'; // Red color
+        proctoringAlert.classList.remove('d-none');
+
+        if (alertTimeout) clearTimeout(alertTimeout);
+        alertTimeout = setTimeout(() => {
+            proctoringAlert.classList.add('d-none');
+            video.style.borderColor = '#ccc'; // Revert to gray
+        }, 3000);
+    }
+
+    // --- THE MAIN DETECTION LOOP (with improved logic) ---
+    async function runDetection() {
+        if (!detector || !stream) {
+            requestAnimationFrame(runDetection);
+            return;
+        }
+        
+        const faces = await detector.estimateFaces(video, {flipHorizontal: false});
+
+        if (faces.length !== 1) {
+            showAlert();
+        } else {
+            const keypoints = faces[0].keypoints;
+            
+            // Get the 3D coordinates of key facial landmarks
+            const nose = keypoints.find(p => p.name === 'noseTip');
+            const leftEye = keypoints.find(p => p.name === 'leftEye');
+            const rightEye = keypoints.find(p => p.name === 'rightEye');
+            const leftCheek = keypoints.find(p => p.name === 'leftCheek');
+            const rightCheek = keypoints.find(p => p.name === 'rightCheek');
+
+            if (nose && leftEye && rightEye && leftCheek && rightCheek) {
+                // --- ROBUST YAW (Left/Right) DETECTION ---
+                // We compare the horizontal distance from eye to nose vs eye to cheek.
+                // This ratio changes reliably as the head turns.
+                const noseToLeftEyeDist = Math.abs(leftEye.x - nose.x);
+                const noseToRightEyeDist = Math.abs(rightEye.x - nose.x);
+                const yawRatio = noseToLeftEyeDist / noseToRightEyeDist;
+
+                // --- FOR DEBUGGING: Log the value to the console ---
+                // This is the most important line for testing!
+                console.log("Yaw Ratio:", yawRatio.toFixed(2));
+
+                // A face looking straight ahead will have a ratio near 1.0.
+                // Looking to the side will make it much smaller or larger.
+                const YAW_RATIO_THRESHOLD_LOW = 0.5;
+                const YAW_RATIO_THRESHOLD_HIGH = 1.5;
+
+                if (yawRatio < YAW_RATIO_THRESHOLD_LOW || yawRatio > YAW_RATIO_THRESHOLD_HIGH) {
+                    showAlert();
+                }
+            }
+        }
+        
+        requestAnimationFrame(runDetection);
+    }
+});
+</script>
+{% endblock custom_js %}

@@ -69,14 +69,13 @@
                     {% for session in quiz.sessions.all %}
                     <tr>
                         <td><strong>{{ session.session_code }}</strong></td>
-                        <td>...</td>
-                        <td>...</td>
-                        <td>...</td>
+                        
                         <td>
                             <a href="{% url 'session_detail' session.id %}" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-eye"></i> View Code
-                            </a>
+                            </a></td>
                             <!-- ADD THIS NEW BUTTON -->
+                             <td>
                             <a href="{% url 'session_dashboard' session.id %}" class="btn btn-sm btn-outline-info">
                                 <i class="fas fa-chart-bar"></i> Dashboard
                             </a>
